@@ -27,10 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Run ansible-lint
-      uses: ansible/ansible-lint@v24
+    - name: Set up Python
+      uses: actions/setup-python@v5
       with:
-        working_directory: ansible/
+        python-version: '3.11'
+    - name: Install ansible and ansible-lint
+      run: pip install ansible ansible-lint
+    - name: Run ansible-lint
+      run: ansible-lint
+      working-directory: ansible/
 
   api-tests:
     runs-on: ubuntu-latest
