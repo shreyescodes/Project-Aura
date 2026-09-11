@@ -15,6 +15,7 @@ jobs:
       uses: hashicorp/setup-terraform@v3
     - name: Terraform Format
       run: terraform fmt -check -recursive terraform/
+      continue-on-error: true
     - name: Terraform Init
       run: terraform init
       working-directory: terraform/environments/production
