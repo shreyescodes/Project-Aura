@@ -1,0 +1,44 @@
+---
+- name: Create Ceph configuration directories
+  ansible.builtin.file:
+    path: "{{ kolla_config_dir }}/config/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop: "{{ (kolla_ceph_conf_dirs + (kolla_ceph_keyrings | map(attribute='dest') | list)) | unique }}"
+
+- name: Generate a minimal Ceph client configuration
+  ansible.builtin.command:
+    argv: [ceph, config, generate-minimal-conf]
+  register: kolla_ceph_conf
+  changed_when: false
+  delegate_to: "{{ kolla_ceph_admin_host }}"
+
+- name: Install the Ceph client configuration
+  ansible.builtin.copy:
+    content: "{{ kolla_ceph_conf['stdout'] }}\n"
+    dest: "{{ kolla_config_dir }}/config/{{ item }}/ceph.conf"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ kolla_ceph_conf_dirs }}"
+
+- name: Export OpenStack client keyrings
+  ansible.builtin.command:
+    argv: [ceph, auth, get, "client.{{ item }}"]
+  register: kolla_ceph_keyring_export
+  changed_when: false
+  no_log: true
+  delegate_to: "{{ kolla_ceph_admin_host }}"
+  loop: "{{ kolla_ceph_keyrings | map(attribute='client') | unique }}"
+
+- name: Install OpenStack client keyrings
+  ansible.builtin.copy:
+    content: "{{ (kolla_ceph_keyring_export['results'] | selectattr('item', 'equalto', item['client']) | first)['stdout'] }}\n"
+    dest: "{{ kolla_config_dir }}/config/{{ item['dest'] }}/ceph.client.{{ item['client'] }}.keyring"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  loop: "{{ kolla_ceph_keyrings }}"

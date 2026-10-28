@@ -1,0 +1,9 @@
+---
+profile: production
+
+exclude_paths:
+  - collections/
+  - .known_hosts
+
+# Hosts and groups come from the inventory that Terraform generates, which
+# doesn't exist in CI. Syntax checks run against an empty inventory.

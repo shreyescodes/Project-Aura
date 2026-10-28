@@ -1,27 +1,50 @@
-# ADR 001: Use libvirt for Local/Nested Virtualization
+# ADR 001: Model the platform on libvirt VMs with nested virtualisation
 
 ## Status
+
 Accepted
 
 ## Context
-We are building a production-ready OpenStack platform for a learning project aiming at a senior platform engineer role. The target architecture requires:
-- 3 Controller Nodes
-- 2 Compute Nodes
-- 3 Ceph Storage Nodes
 
-Provisioning physical hardware for this scale is impractical for a local development or learning environment. However, the deployment needs to simulate a real multi-node architecture (VLANs, bonded NICs, multi-disk storage, high availability) as closely as possible to serve as a valid proof of concept for a production deployment.
+The target topology has 3 controllers, 2 compute nodes and 3 Ceph nodes,
+connected by four separate networks (management, external, tunnel, storage).
+The HA behaviour that matters most includes keepalived failover, Galera
+quorum, RabbitMQ clustering, Ceph replication and OVN's distributed
+floating IPs. It only shows up with real multi-node networking.
+
+Dedicated hardware at this scale isn't available for development. Yet a
+single-node all-in-one deployment would hide most of the failure modes the
+platform is designed to handle.
 
 ## Decision
-We will use Terraform with the `dmacvicar/libvirt` provider to provision the nodes as nested VMs on a local hypervisor. This allows us to accurately model the multi-node architecture and logical network separation using virtual networks and virtual disks. The compute nodes will have nested VT-x (`host-passthrough`) enabled so they can run KVM hypervisors themselves for tenant VMs.
+
+Provision every node as a KVM guest on one hypervisor, using Terraform and the
+`dmacvicar/libvirt` provider:
+
+- Each logical network is its own libvirt bridge. The tunnel and storage
+  networks are isolated and use jumbo frames.
+- Compute nodes use `host-passthrough` CPUs so they can run KVM guests
+  themselves (nested virtualisation).
+- Ceph nodes get dedicated virtual disks for OSDs.
+
+## Alternatives considered
+
+- **All-in-one (single node).** Cheap, but nothing to fail over to. HA
+  configuration is never exercised.
+- **Public cloud VMs.** Most providers block nested virtualisation or charge a
+  premium for it, and don't allow arbitrary L2 segments for provider networks.
+- **Vagrant.** Workable, but adds a second provisioning tool alongside
+  Terraform without adding anything.
 
 ## Consequences
 
-### Positive
-- Accurate simulation of multi-node control planes, enabling testing of HA components like HAProxy, Keepalived, RabbitMQ clustering, and Galera.
-- Ability to simulate complex network topologies (Management, Tunnel, Storage, External) using virtual networks.
-- Infrastructure provisioning remains fully automated via Terraform.
-- Cost-effective local development.
-
-### Negative
-- Nested virtualization carries a performance penalty, which might impact the boot times of tenant VMs and storage performance (Ceph).
-- Requires a host with substantial RAM (at least 32-64GB recommended to run all nodes comfortably) and KVM/QEMU setup.
+- Multi-node control plane behaviour can be tested, including failure
+  injection (stop a controller VM, pull a NIC).
+- The Ansible roles and Kolla configuration are the same as for bare metal.
+  Only the Terraform layer is lab-specific.
+- Nested virtualisation is slower: tenant VMs boot more slowly, and Ceph
+  latency is higher than on dedicated disks.
+- The host needs about 72 GB of RAM at the default sizing (each group's size
+  is a Terraform variable). A smaller host can run a reduced topology.
+- The hypervisor is a single point of failure for the whole lab. This is
+  acceptable for a lab and listed under known gaps in the architecture doc.

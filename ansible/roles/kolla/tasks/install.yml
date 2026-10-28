@@ -1,0 +1,23 @@
+---
+- name: Install build dependencies
+  ansible.builtin.apt:
+    name: "{{ kolla_build_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Kolla-Ansible into a virtualenv
+  ansible.builtin.pip:
+    name:
+      - "{{ kolla_ansible_core_requirement }}"
+      - "{{ kolla_ansible_package }}"
+    virtualenv: "{{ kolla_venv }}"
+    virtualenv_command: python3 -m venv
+
+- name: Install Kolla-Ansible's Ansible collections
+  ansible.builtin.command:
+    argv: ["{{ kolla_venv }}/bin/kolla-ansible", install-deps]
+  environment:
+    PATH: "{{ kolla_venv }}/bin:{{ ansible_facts['env']['PATH'] }}"
+  register: kolla_install_deps
+  changed_when: "'Nothing to do' not in kolla_install_deps['stdout']"

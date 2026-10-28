@@ -1,0 +1,56 @@
+---
+kolla_openstack_release: "2025.1"
+
+kolla_venv: /opt/kolla-ansible
+kolla_config_dir: /etc/kolla
+kolla_inventory_path: "{{ kolla_config_dir }}/multinode"
+kolla_ssh_key_path: "{{ kolla_config_dir }}/ssh/id_ed25519"
+
+# Installed from the stable branch matching the OpenStack release. The
+# ansible-core range follows the Kolla-Ansible support matrix for that release.
+kolla_ansible_package: "git+https://opendev.org/openstack/kolla-ansible@stable/{{ kolla_openstack_release }}"
+kolla_ansible_core_requirement: ansible-core>=2.17,<2.19
+
+kolla_build_packages:
+  - git
+  - python3-dev
+  - python3-venv
+  - libffi-dev
+  - gcc
+  - libssl-dev
+
+kolla_internal_vip_address: "{{ aura_internal_vip }}"
+# Must be unique among keepalived instances on the management L2 segment.
+kolla_keepalived_virtual_router_id: 51
+
+# Hosts targeted by Kolla. Controllers double as network and storage
+# (cinder-volume) hosts; Ceph nodes are managed by cephadm, not Kolla.
+kolla_control_hosts: "{{ groups['controllers'] }}"
+kolla_compute_hosts: "{{ groups['computes'] }}"
+
+kolla_ceph_admin_host: "{{ groups['ceph'][0] }}"
+kolla_ceph_mgr_exporter_port: 9283
+
+# Where each service expects Ceph config and keyrings under node_custom_config.
+kolla_ceph_conf_dirs:
+  - glance
+  - cinder
+  - nova
+kolla_ceph_keyrings:
+  - client: glance
+    dest: glance
+  - client: cinder
+    dest: cinder/cinder-volume
+  # Nova attaches Cinder volumes and stores ephemeral disks as the cinder user.
+  - client: cinder
+    dest: nova
+
+# Prometheus alerting rules shipped with this repository.
+kolla_alert_rules_dir: "{{ playbook_dir }}/../../monitoring/prometheus/rules"
+
+# Kolla-Ansible actions run in order by the deploy tasks.
+kolla_actions:
+  - bootstrap-servers
+  - prechecks
+  - deploy
+  - post-deploy

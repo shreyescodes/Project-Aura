@@ -1,0 +1,43 @@
+---
+common_supported_distributions:
+  Ubuntu:
+    - "24.04"
+
+common_packages:
+  - chrony
+  - curl
+  - jq
+  - lvm2
+  - python3-apt
+
+common_ntp_servers:
+  - ntp.ubuntu.com
+
+# Hosts listed in /etc/hosts, resolved by their management address. Kolla and
+# cephadm both expect every node's hostname to resolve without external DNS.
+common_etc_hosts_groups:
+  - controllers
+  - computes
+  - ceph
+
+common_sysctl:
+  # Hypervisors and network nodes see thousands of neighbours (one per VM port).
+  net.ipv4.neigh.default.gc_thresh1: 4096
+  net.ipv4.neigh.default.gc_thresh2: 8192
+  net.ipv4.neigh.default.gc_thresh3: 16384
+  net.core.somaxconn: 4096
+  # Containerised services (Kolla, cephadm) each hold inotify watches.
+  fs.inotify.max_user_instances: 1024
+  vm.swappiness: 10
+
+common_sshd_settings:
+  PermitRootLogin: "no"
+  PasswordAuthentication: "no"
+  KbdInteractiveAuthentication: "no"
+  PermitEmptyPasswords: "no"
+  X11Forwarding: "no"
+  AllowAgentForwarding: "no"
+  MaxAuthTries: 3
+  LoginGraceTime: 30
+  ClientAliveInterval: 300
+  ClientAliveCountMax: 2

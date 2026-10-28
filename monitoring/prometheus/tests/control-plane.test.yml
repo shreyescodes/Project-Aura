@@ -1,0 +1,73 @@
+rule_files:
+  - ../rules/control-plane.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: Galera node stuck as donor fires after 10 minutes
+    interval: 1m
+    input_series:
+      - series: 'mysql_global_status_wsrep_local_state{instance="controller-1:9104", job="mysqld"}'
+        values: "4 2x15"
+      - series: 'mysql_global_status_wsrep_local_state{instance="controller-0:9104", job="mysqld"}'
+        values: "4x15"
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: GaleraNodeNotSynced
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: GaleraNodeNotSynced
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: controller-1:9104
+              job: mysqld
+            exp_annotations:
+              summary: "Galera node controller-1:9104 is not synced (state 2)."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/galera.md#galeranodenotsynced
+
+  - name: Galera cluster losing a member
+    interval: 1m
+    input_series:
+      - series: 'mysql_global_status_wsrep_cluster_size{instance="controller-0:9104", job="mysqld"}'
+        values: "3 3 2x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: GaleraClusterSizeReduced
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: controller-0:9104
+              job: mysqld
+            exp_annotations:
+              summary: "Galera cluster seen from controller-0:9104 has 2 of 3 members."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/galera.md#galeraclustersizereduced
+
+  - name: RabbitMQ disk alarm fires on either watermark
+    interval: 1m
+    input_series:
+      - series: 'rabbitmq_alarms_memory_used_watermark{instance="controller-2:15692", job="rabbitmq"}'
+        values: "0x5"
+      - series: 'rabbitmq_alarms_free_disk_space_watermark{instance="controller-2:15692", job="rabbitmq"}'
+        values: "0 1x5"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RabbitMQResourceAlarm
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: controller-2:15692
+              job: rabbitmq
+            exp_annotations:
+              summary: "RabbitMQ on controller-2:15692 raised a resource alarm and is blocking publishers."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/rabbitmq.md#rabbitmqresourcealarm
+
+  - name: HAProxy backend with healthy servers stays quiet
+    interval: 1m
+    input_series:
+      - series: 'haproxy_backend_active_servers{instance="controller-0:8404", proxy="nova_api_back"}'
+        values: "3x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HAProxyBackendDown
+        exp_alerts: []

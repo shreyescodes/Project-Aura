@@ -1,0 +1,18 @@
+---
+- name: Prepare storage nodes
+  hosts: ceph
+  # Enrolment needs every node; stop early rather than build a partial cluster.
+  any_errors_fatal: true
+
+  roles:
+    - role: ceph
+
+# The first storage node bootstraps the cluster, then drives the orchestrator.
+- name: Build the Ceph cluster
+  hosts: ceph[0]
+
+  tasks:
+    - name: Bootstrap, enrol nodes and prepare OpenStack pools
+      ansible.builtin.include_role:
+        name: ceph
+        tasks_from: cluster.yml

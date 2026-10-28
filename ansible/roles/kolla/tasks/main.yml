@@ -1,0 +1,20 @@
+---
+- name: Install Kolla-Ansible
+  ansible.builtin.import_tasks: install.yml
+  tags: [kolla-install]
+
+- name: Render Kolla configuration
+  ansible.builtin.import_tasks: config.yml
+  tags: [kolla-config]
+
+- name: Connect OpenStack services to Ceph
+  ansible.builtin.import_tasks: ceph.yml
+  tags: [kolla-config]
+
+- name: Install Prometheus alerting rules
+  ansible.builtin.import_tasks: monitoring.yml
+  tags: [kolla-config]
+
+- name: Deploy OpenStack
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [kolla-deploy]

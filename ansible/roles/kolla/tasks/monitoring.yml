@@ -1,0 +1,20 @@
+---
+- name: Create the Prometheus custom configuration directory
+  ansible.builtin.file:
+    path: "{{ kolla_config_dir }}/config/prometheus"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+# Kolla loads every *.rules file in this directory into Prometheus.
+- name: Install alerting rules
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ kolla_config_dir }}/config/prometheus/{{ item | basename | replace('.rules.yml', '.rules') }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ query('ansible.builtin.fileglob', kolla_alert_rules_dir ~ '/*.rules.yml') }}"
+  loop_control:
+    label: "{{ item | basename }}"

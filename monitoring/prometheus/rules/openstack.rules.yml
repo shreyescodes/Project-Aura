@@ -1,0 +1,45 @@
+groups:
+  - name: aura.openstack
+    rules:
+      # openstack-exporter reports each API's reachability as openstack_<service>_up.
+      - alert: OpenStackAPIDown
+        expr: |
+          label_replace(openstack_identity_up, "service", "keystone", "", "") == 0
+          or label_replace(openstack_nova_up, "service", "nova", "", "") == 0
+          or label_replace(openstack_neutron_up, "service", "neutron", "", "") == 0
+          or label_replace(openstack_glance_up, "service", "glance", "", "") == 0
+          or label_replace(openstack_cinder_up, "service", "cinder", "", "") == 0
+          or label_replace(openstack_placement_up, "service", "placement", "", "") == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The {{ $labels.service }} API is not responding."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#openstackapidown
+
+      - alert: NovaServiceDown
+        expr: openstack_nova_agent_state{adminState="enabled"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} on {{ $labels.hostname }} is enabled but not reporting."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#novaservicedown
+
+      - alert: CinderServiceDown
+        expr: openstack_cinder_agent_state{adminState="enabled"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} on {{ $labels.hostname }} is enabled but not reporting."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#cinderservicedown
+
+      - alert: NeutronAgentDown
+        expr: openstack_neutron_agent_state{adminState="up"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} on {{ $labels.hostname }} is administratively up but not alive."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#neutronagentdown

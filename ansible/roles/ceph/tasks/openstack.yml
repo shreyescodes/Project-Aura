@@ -1,0 +1,41 @@
+---
+- name: List existing pools
+  ansible.builtin.command:
+    argv: [ceph, osd, pool, ls, --format, json]
+  register: ceph_pool_ls
+  changed_when: false
+
+- name: Work out which OpenStack pools are missing
+  ansible.builtin.set_fact:
+    ceph_missing_pools: "{{ ceph_openstack_pools | difference(ceph_pool_ls['stdout'] | from_json) }}"
+
+- name: Create OpenStack pools
+  ansible.builtin.command:
+    argv: [ceph, osd, pool, create, "{{ item }}"]
+  changed_when: true
+  loop: "{{ ceph_missing_pools }}"
+
+- name: Initialise new pools for RBD
+  ansible.builtin.command:
+    argv: [rbd, pool, init, "{{ item }}"]
+  changed_when: true
+  loop: "{{ ceph_missing_pools }}"
+
+- name: List existing client keys
+  ansible.builtin.command:
+    argv: [ceph, auth, ls, --format, json]
+  register: ceph_auth_ls
+  changed_when: false
+  no_log: true
+
+- name: Create OpenStack client keys
+  # Caps are passed as "<daemon> <spec>" pairs after the entity name.
+  ansible.builtin.command:
+    argv: "{{ ['ceph', 'auth', 'get-or-create', item['name']] + (item['caps'].items() | flatten) }}"
+  changed_when: true
+  no_log: true
+  vars:
+    ceph_existing_entities: "{{ (ceph_auth_ls['stdout'] | from_json)['auth_dump'] | map(attribute='entity') | list }}"
+  loop: "{{ ceph_openstack_clients | rejectattr('name', 'in', ceph_existing_entities) | list }}"
+  loop_control:
+    label: "{{ item['name'] }}"

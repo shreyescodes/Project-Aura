@@ -1,0 +1,36 @@
+---
+ceph_container_image: quay.io/ceph/ceph:v19.2.3
+
+ceph_ssh_user: "{{ ansible_user }}"
+
+# The public network is the subnet of the bootstrap monitor's storage address.
+# Client and replication traffic share it in the lab; point this at a dedicated
+# replication network when one exists.
+ceph_cluster_network: "{{ aura_networks['storage']['cidr'] }}"
+
+ceph_host_labels:
+  - mon
+  - mgr
+
+ceph_service_spec_path: /etc/ceph/aura-service-spec.yml
+
+ceph_mgr_modules:
+  - prometheus
+
+ceph_openstack_pools:
+  - images
+  - volumes
+  - vms
+
+# Capabilities follow the upstream "Block Devices and OpenStack" guide.
+ceph_openstack_clients:
+  - name: client.glance
+    caps:
+      mon: profile rbd
+      osd: profile rbd pool=images
+      mgr: profile rbd pool=images
+  - name: client.cinder
+    caps:
+      mon: profile rbd
+      osd: profile rbd pool=volumes, profile rbd pool=vms, profile rbd-read-only pool=images
+      mgr: profile rbd pool=volumes, profile rbd pool=vms

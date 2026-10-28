@@ -1,0 +1,23 @@
+---
+- name: Prepare every node
+  hosts: all
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH on freshly provisioned nodes
+      ansible.builtin.wait_for_connection:
+        timeout: 600
+
+    - name: Wait for cloud-init to finish first boot
+      ansible.builtin.command:
+        argv: [cloud-init, status, --wait]
+      register: cloud_init_status
+      changed_when: false
+      # 2 means finished with recoverable warnings, which is fine.
+      failed_when: cloud_init_status.rc not in [0, 2]
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+  roles:
+    - role: common

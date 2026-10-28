@@ -1,0 +1,12 @@
+---
+# Lab-wide overrides. Hosts, addresses and networks (aura_*) are written to
+# hosts.yml by Terraform; everything else defaults inside the roles and is
+# pinned here so an upgrade is a reviewed one-line change.
+
+kolla_openstack_release: "2025.1"
+ceph_container_image: quay.io/ceph/ceph:v19.2.3
+
+common_ntp_servers:
+  - 0.ubuntu.pool.ntp.org
+  - 1.ubuntu.pool.ntp.org
+  - 2.ubuntu.pool.ntp.org

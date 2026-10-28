@@ -1,0 +1,20 @@
+---
+# Runs on the first storage node, which bootstraps the cluster and keeps the
+# admin keyring. The other nodes are enrolled through the orchestrator.
+
+- name: Install the Ceph CLI
+  ansible.builtin.apt:
+    name: ceph-common
+    state: present
+
+- name: Bootstrap the cluster
+  ansible.builtin.import_tasks: bootstrap.yml
+
+- name: Enrol storage nodes
+  ansible.builtin.import_tasks: hosts.yml
+
+- name: Configure cluster services
+  ansible.builtin.import_tasks: services.yml
+
+- name: Prepare pools and clients for OpenStack
+  ansible.builtin.import_tasks: openstack.yml

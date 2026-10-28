@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+service_type: mon
+placement:
+  label: mon
+---
+service_type: mgr
+placement:
+  label: mgr
+---
+# Every unused block device on every storage node becomes an OSD.
+service_type: osd
+service_id: all-available-devices
+placement:
+  host_pattern: "*"
+spec:
+  data_devices:
+    all: true

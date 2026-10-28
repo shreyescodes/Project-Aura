@@ -1,0 +1,43 @@
+groups:
+  - name: aura.node
+    rules:
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node exporter on {{ $labels.instance }} is unreachable."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/node-health.md#nodeexporterdown
+
+      - alert: NodeFilesystemAlmostFull
+        expr: |
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|nsfs"} < 0.10
+          and node_filesystem_readonly == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.mountpoint }} on {{ $labels.instance }} has less than 10% space left."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/node-health.md#nodefilesystemalmostfull
+
+      - alert: NodeMemoryPressure
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} has less than 10% memory available."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/node-health.md#nodememorypressure
+
+      # Ceph monitors warn at 50ms of skew and Galera certification suffers
+      # well before that, so alert at the same threshold.
+      - alert: NodeClockSkew
+        expr: abs(node_timex_offset_seconds) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Clock on {{ $labels.instance }} is {{ $value | humanizeDuration }} off."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/node-health.md#nodeclockskew

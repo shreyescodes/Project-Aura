@@ -1,0 +1,20 @@
+---
+# cephadm sets public_network to the subnet of --mon-ip, which is the storage
+# network. Monitoring (Prometheus, Grafana, Alertmanager) comes from Kolla, so
+# cephadm's own stack is skipped and Kolla scrapes the mgr's Prometheus module.
+- name: Bootstrap the first monitor and manager
+  ansible.builtin.command:
+    argv:
+      - cephadm
+      - --image
+      - "{{ ceph_container_image }}"
+      - bootstrap
+      - --mon-ip
+      - "{{ aura_addresses['storage'] }}"
+      - --cluster-network
+      - "{{ ceph_cluster_network }}"
+      - --ssh-user
+      - "{{ ceph_ssh_user }}"
+      - --skip-dashboard
+      - --skip-monitoring-stack
+    creates: /etc/ceph/ceph.conf
