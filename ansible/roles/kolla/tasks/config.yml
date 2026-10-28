@@ -1,0 +1,73 @@
+---
+- name: Create configuration directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ kolla_config_dir }}"
+    - "{{ kolla_config_dir }}/config"
+    - "{{ kolla_ssh_key_path | dirname }}"
+
+- name: Generate the deployment SSH key
+  ansible.builtin.command:
+    argv: [ssh-keygen, -t, ed25519, -N, "", -C, "kolla@{{ inventory_hostname }}", -f, "{{ kolla_ssh_key_path }}"]
+    creates: "{{ kolla_ssh_key_path }}"
+
+- name: Read the deployment SSH public key
+  ansible.builtin.slurp:
+    src: "{{ kolla_ssh_key_path }}.pub"
+  register: kolla_ssh_pubkey
+
+- name: Authorise the deployment key on Kolla hosts
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ kolla_ssh_pubkey['content'] | b64decode }}"
+    state: present
+  delegate_to: "{{ item }}"
+  loop: "{{ kolla_control_hosts + kolla_compute_hosts }}"
+
+- name: Render globals.yml
+  ansible.builtin.template:
+    src: globals.yml.j2
+    dest: "{{ kolla_config_dir }}/globals.yml"
+    owner: root
+    group: root
+    mode: "0640"
+
+# Kolla's sample multinode inventory maps ~100 service groups onto the five
+# role groups. Reuse that mapping from the installed release rather than
+# vendoring a copy that drifts on upgrade.
+- name: Read the upstream service group mapping
+  ansible.builtin.slurp:
+    src: "{{ kolla_venv }}/share/kolla-ansible/ansible/inventory/multinode"
+  register: kolla_upstream_inventory
+
+- name: Check the upstream inventory layout
+  ansible.builtin.assert:
+    that:
+      - "'[baremetal:children]' in (kolla_upstream_inventory['content'] | b64decode)"
+    fail_msg: The upstream multinode inventory changed layout; update templates/multinode.j2.
+    quiet: true
+
+- name: Render the Kolla inventory
+  ansible.builtin.template:
+    src: multinode.j2
+    dest: "{{ kolla_inventory_path }}"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Seed the passwords file
+  # force: false keeps existing secrets; a new file is filled by kolla-genpwd.
+  ansible.builtin.copy:
+    src: "{{ kolla_venv }}/share/kolla-ansible/etc_examples/kolla/passwords.yml"
+    dest: "{{ kolla_config_dir }}/passwords.yml"
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Generate Kolla passwords

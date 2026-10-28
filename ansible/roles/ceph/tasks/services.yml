@@ -1,0 +1,23 @@
+---
+# The orchestrator is declarative: write the desired placement to a spec file
+# and re-apply it only when the spec changes.
+- name: Render the service specification
+  ansible.builtin.template:
+    src: service-spec.yml.j2
+    dest: "{{ ceph_service_spec_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Apply Ceph service specification
+
+- name: List enabled manager modules
+  ansible.builtin.command:
+    argv: [ceph, mgr, module, ls, --format, json]
+  register: ceph_mgr_module_ls
+  changed_when: false
+
+- name: Enable manager modules
+  ansible.builtin.command:
+    argv: [ceph, mgr, module, enable, "{{ item }}"]
+  changed_when: true
+  loop: "{{ ceph_mgr_modules | difference((ceph_mgr_module_ls['stdout'] | from_json)['enabled_modules']) }}"

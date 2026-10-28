@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+{% for server in common_ntp_servers %}
+pool {{ server }} iburst maxsources 2
+{% endfor %}
+
+confdir /etc/chrony/conf.d
+sourcedir /etc/chrony/sources.d
+keyfile /etc/chrony/chrony.keys
+driftfile /var/lib/chrony/chrony.drift
+ntsdumpdir /var/lib/chrony
+logdir /var/log/chrony
+
+# Step the clock on the first updates after boot; slew afterwards. Galera and
+# Ceph monitors both misbehave when clocks drift apart.
+makestep 1.0 3
+maxupdateskew 100.0
+rtcsync
+leapsectz right/UTC

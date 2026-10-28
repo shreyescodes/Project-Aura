@@ -1,0 +1,12 @@
+---
+# Node preparation, run on every storage node. The cluster itself is built from
+# the first node by cluster.yml (see playbooks/ceph.yml).
+- name: Install cephadm and its container runtime
+  ansible.builtin.apt:
+    name:
+      - cephadm
+      - podman
+      - lvm2
+    state: present
+    update_cache: true
+    cache_valid_time: 3600

@@ -1,0 +1,8 @@
+---
+# Kolla-Ansible runs from the first controller (the deployment host) and reaches
+# the other nodes with its own SSH key, which the kolla role installs.
+- name: Deploy OpenStack with Kolla-Ansible
+  hosts: controllers[0]
+
+  roles:
+    - role: kolla

@@ -1,0 +1,5 @@
+---
+- name: Generate Kolla passwords
+  ansible.builtin.command:
+    argv: ["{{ kolla_venv }}/bin/kolla-genpwd", -p, "{{ kolla_config_dir }}/passwords.yml"]
+  changed_when: true

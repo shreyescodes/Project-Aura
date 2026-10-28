@@ -1,7 +1,12 @@
 ---
-- name: Placeholder playbook
-  hosts: localhost
-  gather_facts: false
-  tasks:
-    - name: Ping
-      ansible.builtin.ping:
+# Full platform build: OS baseline -> Ceph -> OpenStack.
+# Each phase is also runnable on its own; see the Makefile targets.
+
+- name: Prepare every node
+  ansible.builtin.import_playbook: bootstrap.yml
+
+- name: Deploy Ceph
+  ansible.builtin.import_playbook: ceph.yml
+
+- name: Deploy OpenStack
+  ansible.builtin.import_playbook: openstack.yml

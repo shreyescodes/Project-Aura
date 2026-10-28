@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: ceph
+  author: Project Aura maintainers
+  description: Deploys a Ceph cluster with cephadm and prepares RBD pools and keys for OpenStack.
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+
+dependencies: []

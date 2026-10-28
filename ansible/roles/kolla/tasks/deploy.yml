@@ -1,0 +1,15 @@
+---
+- name: Generate passwords before deploying
+  ansible.builtin.meta: flush_handlers
+
+- name: Run kolla-ansible actions
+  ansible.builtin.command:
+    argv: ["{{ kolla_venv }}/bin/kolla-ansible", "{{ item }}", -i, "{{ kolla_inventory_path }}"]
+  environment:
+    PATH: "{{ kolla_venv }}/bin:{{ ansible_facts['env']['PATH'] }}"
+  changed_when: true
+  # A full deploy takes 30-60 minutes; run it asynchronously so an SSH
+  # timeout can't kill it part-way.
+  async: 7200
+  poll: 30
+  loop: "{{ kolla_actions }}"

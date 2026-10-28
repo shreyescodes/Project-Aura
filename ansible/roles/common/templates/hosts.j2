@@ -1,0 +1,5 @@
+{% for group in common_etc_hosts_groups if group in groups %}
+{% for host in groups[group] | sort %}
+{{ hostvars[host]['aura_addresses']['mgmt'] }} {{ host }}.{{ aura_dns_domain }} {{ host }}
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,5 @@
+---
+- name: Apply Ceph service specification
+  ansible.builtin.command:
+    argv: [ceph, orch, apply, -i, "{{ ceph_service_spec_path }}"]
+  changed_when: true
