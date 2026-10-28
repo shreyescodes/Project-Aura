@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(ci)
+
+  - package-ecosystem: uv
+    directory: /api
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(api)
+    groups:
+      dev-tools:
+        dependency-type: development
+
+  - package-ecosystem: docker
+    directory: /api
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore(api)
+
+  - package-ecosystem: terraform
+    directory: /terraform/environments/lab
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore(terraform)
+    ignore:
+      # 0.9 is a rewrite of the provider with an incompatible resource schema.
+      - dependency-name: dmacvicar/libvirt
+        versions: [">= 0.9.0"]
