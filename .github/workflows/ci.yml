@@ -1,54 +1,131 @@
-name: Project Aura CI
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  terraform-validate:
+  yaml:
+    name: YAML lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-    - name: Terraform Format
-      run: terraform fmt -check -recursive terraform/
-      continue-on-error: true
-    - name: Terraform Init
-      run: terraform init
-      working-directory: terraform/environments/production
-    - name: Terraform Validate
-      run: terraform validate
-      working-directory: terraform/environments/production
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install yamllint==1.38.0
+      - run: yamllint --strict .
 
-  ansible-lint:
+  terraform:
+    name: Terraform
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Install ansible and ansible-lint
-      run: pip install ansible ansible-lint
-    - name: Run ansible-lint
-      run: ansible-lint
-      working-directory: ansible/
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.17"
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.65.0
 
-  api-tests:
+      - name: Format
+        run: terraform fmt -check -recursive -diff terraform/
+
+      - name: Init (no backend)
+        working-directory: terraform/environments/lab
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate
+        working-directory: terraform/environments/lab
+        run: terraform validate
+
+      - name: TFLint
+        run: |
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+
+  ansible:
+    name: Ansible
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r api/requirements.txt
-    - name: Run tests
-      run: |
-        pytest api/tests/
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-lint==26.10.1
+      - run: ansible-galaxy collection install -r requirements.yml -p collections
+      - run: ansible-lint
+
+  monitoring:
+    name: Alerting rules
+    runs-on: ubuntu-latest
+    env:
+      PROMTOOL: >-
+        docker run --rm --entrypoint promtool
+        -v ${{ github.workspace }}/monitoring/prometheus:/rules -w /rules
+        prom/prometheus:v3.15.1
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check rules
+        run: $PROMTOOL check rules rules/*.yml
+        working-directory: monitoring/prometheus
+      - name: Unit test rules
+        run: $PROMTOOL test rules tests/*.test.yml
+        working-directory: monitoring/prometheus
+
+  api:
+    name: API (lint, types, tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.6"
+          enable-cache: true
+          cache-dependency-glob: api/uv.lock
+      - run: uv sync --frozen --python 3.12
+      - run: uv run ruff check --output-format=github .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src tests
+      - run: uv run pytest
+
+  api-image:
+    name: API image
+    runs-on: ubuntu-latest
+    needs: api
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: api
+          push: false
+          load: true
+          tags: aura-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: |
+          docker run -d --name aura-api -p 8080:8080 aura-api:ci
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8080/healthz && exit 0
+            sleep 1
+          done
+          docker logs aura-api
+          exit 1
