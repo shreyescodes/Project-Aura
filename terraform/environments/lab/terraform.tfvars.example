@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (gitignored) and adjust.
+
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... operator@workstation",
+]
+
+# Point at a remote hypervisor instead of the local one:
+# libvirt_uri = "qemu+ssh://operator@hypervisor.example.net/system"
+
+# Use a pre-downloaded image to skip the download on every rebuild:
+# base_image_url = "/var/lib/libvirt/images/noble-server-cloudimg-amd64.img"
+
+# Shrink the footprint on a smaller host (minimum supported topology):
+# controllers = { count = 1, memory_mib = 12288 }
+# computes    = { count = 1 }
