@@ -1,0 +1,52 @@
+rule_files:
+  - ../rules/ceph.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: Short HEALTH_WARN blips are ignored
+    interval: 1m
+    input_series:
+      - series: 'ceph_health_status{instance="10.0.40.31:9283", job="ceph_mgr_exporter"}'
+        values: "0 1x10 0x30"
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: CephHealthWarning
+        exp_alerts: []
+
+  - name: Capacity warning uses raw usage ratio
+    interval: 1m
+    input_series:
+      - series: 'ceph_cluster_total_bytes{instance="10.0.40.31:9283", job="ceph_mgr_exporter"}'
+        values: "1000x20"
+      - series: 'ceph_cluster_total_used_bytes{instance="10.0.40.31:9283", job="ceph_mgr_exporter"}'
+        values: "800x20"
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: CephClusterNearFull
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.0.40.31:9283
+              job: ceph_mgr_exporter
+            exp_annotations:
+              summary: "Ceph raw capacity is 80% used."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/ceph.md#cephclusternearfull
+
+  - name: OSD down
+    interval: 1m
+    input_series:
+      - series: 'ceph_osd_up{ceph_daemon="osd.4", instance="10.0.40.31:9283", job="ceph_mgr_exporter"}'
+        values: "1 0x10"
+    alert_rule_test:
+      - eval_time: 7m
+        alertname: CephOSDDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              ceph_daemon: osd.4
+              instance: 10.0.40.31:9283
+              job: ceph_mgr_exporter
+            exp_annotations:
+              summary: "osd.4 is down."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/ceph.md#cephosddown

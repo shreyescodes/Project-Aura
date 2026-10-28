@@ -1,0 +1,65 @@
+groups:
+  - name: aura.galera
+    rules:
+      - alert: MariaDBDown
+        expr: mysql_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MariaDB on {{ $labels.instance }} is down."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/galera.md#mariadbdown
+
+      # wsrep_local_state 4 is Synced. Donor/Joiner (2/1) is expected briefly
+      # during state transfers, hence the 10m window.
+      - alert: GaleraNodeNotSynced
+        expr: mysql_global_status_wsrep_local_state != 4
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Galera node {{ $labels.instance }} is not synced (state {{ $value }})."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/galera.md#galeranodenotsynced
+
+      # The lab runs three controllers. Change the threshold with the topology.
+      - alert: GaleraClusterSizeReduced
+        expr: mysql_global_status_wsrep_cluster_size < 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Galera cluster seen from {{ $labels.instance }} has {{ $value }} of 3 members."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/galera.md#galeraclustersizereduced
+
+  - name: aura.rabbitmq
+    rules:
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ on {{ $labels.instance }} is unreachable."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/rabbitmq.md#rabbitmqdown
+
+      # A resource alarm blocks every publisher on the cluster, which stalls
+      # all OpenStack RPC.
+      - alert: RabbitMQResourceAlarm
+        expr: rabbitmq_alarms_memory_used_watermark == 1 or rabbitmq_alarms_free_disk_space_watermark == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ on {{ $labels.instance }} raised a resource alarm and is blocking publishers."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/rabbitmq.md#rabbitmqresourcealarm
+
+  - name: aura.haproxy
+    rules:
+      - alert: HAProxyBackendDown
+        expr: haproxy_backend_active_servers == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HAProxy backend {{ $labels.proxy }} on {{ $labels.instance }} has no healthy servers."
+          runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#haproxybackenddown

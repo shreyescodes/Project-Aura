@@ -1,0 +1,67 @@
+rule_files:
+  - ../rules/openstack.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: Down APIs are reported individually with a service label
+    interval: 1m
+    input_series:
+      - series: 'openstack_identity_up{instance="controller-0:9198", job="openstack_exporter"}'
+        values: "1x10"
+      - series: 'openstack_nova_up{instance="controller-0:9198", job="openstack_exporter"}'
+        values: "0x10"
+      - series: 'openstack_cinder_up{instance="controller-0:9198", job="openstack_exporter"}'
+        values: "1 1 0x8"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OpenStackAPIDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: nova
+              instance: controller-0:9198
+              job: openstack_exporter
+            exp_annotations:
+              summary: "The nova API is not responding."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#openstackapidown
+      - eval_time: 8m
+        alertname: OpenStackAPIDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              service: nova
+              instance: controller-0:9198
+              job: openstack_exporter
+            exp_annotations:
+              summary: "The nova API is not responding."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#openstackapidown
+          - exp_labels:
+              severity: critical
+              service: cinder
+              instance: controller-0:9198
+              job: openstack_exporter
+            exp_annotations:
+              summary: "The cinder API is not responding."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#openstackapidown
+
+  - name: Disabled compute services do not page
+    interval: 1m
+    input_series:
+      - series: 'openstack_nova_agent_state{adminState="disabled", hostname="compute-1", service="nova-compute", zone="nova"}'
+        values: "0x10"
+      - series: 'openstack_nova_agent_state{adminState="enabled", hostname="compute-0", service="nova-compute", zone="nova"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NovaServiceDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              adminState: enabled
+              hostname: compute-0
+              service: nova-compute
+              zone: nova
+            exp_annotations:
+              summary: "nova-compute on compute-0 is enabled but not reporting."
+              runbook_url: https://github.com/shreyescodes/Project-Aura/blob/main/docs/runbooks/openstack-services.md#novaservicedown
