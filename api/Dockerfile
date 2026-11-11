@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- Build: resolve the locked dependency set into a virtualenv ----------------
-FROM python:3.12-slim-trixie AS build
+FROM python:3.15-slim-trixie AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
 
 # --- Runtime: interpreter + virtualenv only, as an unprivileged user ----------
-FROM python:3.12-slim-trixie
+FROM python:3.15-slim-trixie
 
 RUN groupadd --system --gid 10001 aura \
     && useradd --system --uid 10001 --gid aura --no-create-home aura
